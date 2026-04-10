@@ -8,6 +8,7 @@ use App\Models\Invoice;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\InvoicesExport;
+use App\Imports\InvoicesImport;
 
 class InvoiceController extends Controller
 {
@@ -23,10 +24,30 @@ class InvoiceController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('proveedor', 'ilike', "%{$search}%")
-                  ->orWhere('numero_factura', 'ilike', "%{$search}%")
-                  ->orWhere('nit', 'ilike', "%{$search}%");
+                $q->where('proveedor', 'like', "%{$search}%")
+                  ->orWhere('numero_factura', 'like', "%{$search}%")
+                  ->orWhere('nit', 'like', "%{$search}%");
             });
+        }
+
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('fecha', '>=', $request->fecha_desde);
+        }
+
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('fecha', '<=', $request->fecha_hasta);
+        }
+
+        if ($request->filled('monto_min')) {
+            $query->where('total', '>=', (float) $request->monto_min);
+        }
+
+        if ($request->filled('monto_max')) {
+            $query->where('total', '<=', (float) $request->monto_max);
+        }
+
+        if ($request->filled('revision_seguridad')) {
+            $query->where('revision_seguridad', $request->revision_seguridad);
         }
 
         $invoices = $query->paginate(15);
@@ -108,16 +129,20 @@ class InvoiceController extends Controller
         $userId = $request->user()->id;
 
         $stats = [
-            'total'       => Invoice::where('user_id', $userId)->count(),
-            'correctas'   => Invoice::where('user_id', $userId)->where('estado_validacion', 'correcto')->count(),
-            'errores'     => Invoice::where('user_id', $userId)->where('estado_validacion', 'error')->count(),
-            'pendientes'  => Invoice::where('user_id', $userId)->where('estado_validacion', 'pendiente')->count(),
-            'advertencias'=> Invoice::where('user_id', $userId)->where('estado_validacion', 'advertencia')->count(),
-            'total_monto' => Invoice::where('user_id', $userId)->where('estado_validacion', 'correcto')->sum('total'),
+            'total'        => Invoice::where('user_id', $userId)->count(),
+            'correctas'    => Invoice::where('user_id', $userId)->where('estado_validacion', 'correcto')->count(),
+            'errores'      => Invoice::where('user_id', $userId)->where('estado_validacion', 'error')->count(),
+            'pendientes'   => Invoice::where('user_id', $userId)->where('estado_validacion', 'pendiente')->count(),
+            'advertencias' => Invoice::where('user_id', $userId)->where('estado_validacion', 'advertencia')->count(),
+            'total_monto'  => Invoice::where('user_id', $userId)->where('estado_validacion', 'correcto')->sum('total'),
+            // Seguridad
+            'seg_limpias'    => Invoice::where('user_id', $userId)->where('revision_seguridad', 'limpio')->count(),
+            'seg_sospechosas'=> Invoice::where('user_id', $userId)->where('revision_seguridad', 'sospechoso')->count(),
+            'seg_peligrosas' => Invoice::where('user_id', $userId)->where('revision_seguridad', 'peligroso')->count(),
         ];
 
         $monthly = Invoice::where('user_id', $userId)
-            ->selectRaw("TO_CHAR(fecha, 'YYYY-MM') as mes, COUNT(*) as cantidad, SUM(total) as monto")
+            ->selectRaw("strftime('%Y-%m', fecha) as mes, COUNT(*) as cantidad, SUM(total) as monto")
             ->groupBy('mes')
             ->orderBy('mes', 'desc')
             ->limit(6)
@@ -128,4 +153,20 @@ class InvoiceController extends Controller
             'monthly' => $monthly,
         ]);
     }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:5120',
+        ]);
+
+        $import = new InvoicesImport($request->user()->id);
+        Excel::import($import, $request->file('file'));
+
+        return response()->json([
+            'message'  => "Se importaron {$import->getImportedCount()} facturas correctamente.",
+            'imported' => $import->getImportedCount(),
+        ]);
+    }
 }
+

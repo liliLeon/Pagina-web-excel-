@@ -5,7 +5,7 @@ import { api, StatsResponse } from '@/lib/api';
 import { StatsCards } from '@/components/dashboard/StatsCards';
 import { InvoiceChart } from '@/components/dashboard/InvoiceChart';
 import { InvoiceForm } from '@/components/dashboard/InvoiceForm';
-import { InvoiceTable } from '@/components/dashboard/InvoiceTable';
+import InvoiceTable from '@/components/dashboard/InvoiceTable';
 
 export default function DashboardPage() {
   const [stats, setStats]         = useState<StatsResponse | null>(null);

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { LayoutDashboard, FileText, FileSpreadsheet, Settings } from 'lucide-react';
 
 const NAV = [
-  { href: '/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-  { href: '/dashboard/invoices', icon: FileText, label: 'Facturas' },
+  { href: '/dashboard',           icon: LayoutDashboard, label: 'Dashboard' },
+  { href: '/dashboard/invoices',  icon: FileText,         label: 'Facturas' },
+  { href: '/dashboard/settings',  icon: Settings,         label: 'Configuración' },
 ];
 
 interface Props { currentPath: string; }
@@ -20,7 +21,7 @@ export function Sidebar({ currentPath }: Props) {
 
       <nav className="flex-1 p-3 space-y-0.5">
         {NAV.map(({ href, icon: Icon, label }) => {
-          const active = currentPath === href || currentPath.startsWith(href + '/');
+          const active = currentPath === href || (href !== '/dashboard' && currentPath.startsWith(href));
           return (
             <Link
               key={href}
@@ -37,16 +38,6 @@ export function Sidebar({ currentPath }: Props) {
           );
         })}
       </nav>
-
-      <div className="p-3 border-t border-slate-800">
-        <Link
-          href="/dashboard/settings"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
-        >
-          <Settings className="w-4 h-4 shrink-0" />
-          Configuración
-        </Link>
-      </div>
     </aside>
   );
 }

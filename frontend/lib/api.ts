@@ -43,7 +43,16 @@ export const api = {
   },
 
   invoices: {
-    list: (params?: { estado_validacion?: string; search?: string; page?: number }) => {
+    list: (params?: {
+      estado_validacion?: string;
+      revision_seguridad?: string;
+      search?: string;
+      fecha_desde?: string;
+      fecha_hasta?: string;
+      monto_min?: number;
+      monto_max?: number;
+      page?: number;
+    }) => {
       const qs = new URLSearchParams(
         Object.entries(params ?? {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)])
       ).toString();
@@ -61,6 +70,25 @@ export const api = {
       }),
     delete: (id: number) => request<void>(`/invoices/${id}`, { method: 'DELETE' }),
     exportUrl: () => `${API_URL}/invoices-export?token=${getToken()}`,
+    import: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      const token = getToken();
+      return fetch(`${API_URL}/invoices-import`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: form,
+      }).then(async res => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ message: 'Error al importar' }));
+          throw new Error(err.message ?? `HTTP ${res.status}`);
+        }
+        return res.json() as Promise<{ message: string; imported: number }>;
+      });
+    },
     stats: () => request<StatsResponse>('/stats'),
   },
 };
@@ -82,6 +110,8 @@ export interface Invoice {
   estado_validacion: 'pendiente' | 'correcto' | 'error' | 'advertencia';
   mensaje_validacion: string | null;
   exportado_excel: boolean;
+  revision_seguridad: 'pendiente' | 'limpio' | 'sospechoso' | 'peligroso';
+  detalle_seguridad: string | null;
   created_at: string;
 }
 
@@ -109,6 +139,9 @@ export interface StatsResponse {
     pendientes: number;
     advertencias: number;
     total_monto: number;
+    seg_limpias: number;
+    seg_sospechosas: number;
+    seg_peligrosas: number;
   };
   monthly: { mes: string; cantidad: number; monto: number }[];
 }

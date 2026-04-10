@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Invoice;
+use App\Services\SecurityCheckService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,25 +25,22 @@ class ValidateInvoiceJob implements ShouldQueue
     public function handle(): void
     {
         try {
-            $errors = [];
+            $errors   = [];
             $warnings = [];
 
-            // Validate NIT format (9 digits)
+            // ── 1. Validaciones de datos ──────────────────────────────────
             if (!preg_match('/^\d{9}$/', $this->invoice->nit)) {
-                $errors[] = 'NIT inválido: debe tener exactly 9 dígitos numéricos.';
+                $errors[] = 'NIT inválido: debe tener exactamente 9 dígitos numéricos.';
             }
 
-            // Validate total is positive
             if ($this->invoice->total <= 0) {
                 $errors[] = 'El total debe ser mayor a cero.';
             }
 
-            // Warn if total is unusually high (> 1,000,000,000)
             if ($this->invoice->total > 1_000_000_000) {
                 $warnings[] = 'Total inusualmente alto (> $1,000,000,000). Verificar.';
             }
 
-            // Check for duplicate proveedor + same month
             $duplicado = Invoice::where('proveedor', $this->invoice->proveedor)
                 ->where('id', '!=', $this->invoice->id)
                 ->whereMonth('fecha', $this->invoice->fecha->month)
@@ -53,6 +51,25 @@ class ValidateInvoiceJob implements ShouldQueue
                 $warnings[] = 'Ya existe una factura de este proveedor en el mismo mes.';
             }
 
+            // ── 2. Revisión de seguridad Abuse.ch ─────────────────────────
+            $security = app(SecurityCheckService::class)->check(
+                $this->invoice->nit,
+                $this->invoice->proveedor
+            );
+
+            $this->invoice->update([
+                'revision_seguridad' => $security['status'],
+                'detalle_seguridad'  => "[{$security['fuente']}] {$security['detalle']}",
+            ]);
+
+            // Si es peligroso, se marca como error automáticamente
+            if ($security['status'] === 'peligroso') {
+                $errors[] = "SEGURIDAD: {$security['detalle']}";
+            } elseif ($security['status'] === 'sospechoso') {
+                $warnings[] = "SEGURIDAD: {$security['detalle']}";
+            }
+
+            // ── 3. Resultado final ────────────────────────────────────────
             if (!empty($errors)) {
                 $this->invoice->update([
                     'estado_validacion'  => 'error',
@@ -66,15 +83,17 @@ class ValidateInvoiceJob implements ShouldQueue
             } else {
                 $this->invoice->update([
                     'estado_validacion'  => 'correcto',
-                    'mensaje_validacion' => 'Validación exitosa.',
+                    'mensaje_validacion' => 'Validación y revisión de seguridad exitosa.',
                 ]);
             }
+
         } catch (\Throwable $e) {
             Log::error("ValidateInvoiceJob failed for invoice #{$this->invoice->id}: {$e->getMessage()}");
 
             $this->invoice->update([
                 'estado_validacion'  => 'error',
                 'mensaje_validacion' => 'Error interno durante la validación.',
+                'revision_seguridad' => 'sospechoso',
             ]);
         }
     }

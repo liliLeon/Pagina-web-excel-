@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { FileText, CheckCircle2, XCircle, Clock, DollarSign } from 'lucide-react';
+import { FileText, CheckCircle2, XCircle, Clock, DollarSign, ShieldCheck, ShieldAlert, ShieldOff } from 'lucide-react';
 
 interface Props {
   stats: {
@@ -11,6 +11,9 @@ interface Props {
     pendientes: number;
     advertencias: number;
     total_monto: number;
+    seg_limpias: number;
+    seg_sospechosas: number;
+    seg_peligrosas: number;
   } | null;
 }
 
@@ -53,10 +56,31 @@ export function StatsCards({ stats }: Props) {
       color: 'text-violet-400',
       bg: 'bg-violet-400/10',
     },
+    {
+      label: 'Abuse.ch: OK',
+      value: stats?.seg_limpias ?? '—',
+      icon: ShieldCheck,
+      color: 'text-emerald-400',
+      bg: 'bg-emerald-400/10',
+    },
+    {
+      label: 'Sospechosas',
+      value: stats?.seg_sospechosas ?? '—',
+      icon: ShieldAlert,
+      color: 'text-yellow-400',
+      bg: 'bg-yellow-400/10',
+    },
+    {
+      label: 'Peligrosas',
+      value: stats?.seg_peligrosas ?? '—',
+      icon: ShieldOff,
+      color: 'text-red-500',
+      bg: 'bg-red-500/10',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-4">
       {cards.map(({ label, value, icon: Icon, color, bg }) => (
         <Card key={label} className="bg-slate-900 border-slate-800">
           <CardContent className="p-5 flex items-center gap-4">

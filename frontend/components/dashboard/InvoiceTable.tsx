@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  CheckCircle2, XCircle, Clock, AlertTriangle, Download, Search, Trash2,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Download, Search, Trash2, ShieldCheck, ShieldAlert, ShieldOff, Shield,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -26,7 +26,14 @@ const STATUS_MAP = {
   advertencia:  { label: 'Advertencia', icon: AlertTriangle, variant: 'secondary'   as const, className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' },
 };
 
-export function InvoiceTable({ onMutate }: Props) {
+const SEC_MAP = {
+  limpio:      { icon: ShieldCheck,  className: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30', label: 'Limpio'      },
+  sospechoso:  { icon: ShieldAlert,  className: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',   label: 'Sospechoso'  },
+  peligroso:   { icon: ShieldOff,    className: 'bg-red-500/15 text-red-400 border-red-500/30',            label: 'Peligroso'   },
+  pendiente:   { icon: Shield,       className: 'bg-slate-500/15 text-slate-400 border-slate-500/30',      label: 'Pendiente'   },
+};
+
+export default function InvoiceTable({ onMutate }: Props) {
   const [data, setData]     = useState<PaginatedResponse<Invoice> | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
@@ -112,7 +119,7 @@ export function InvoiceTable({ onMutate }: Props) {
         <Table>
           <TableHeader>
             <TableRow className="border-slate-800 hover:bg-transparent">
-              {['Nº Factura', 'Proveedor', 'NIT', 'Total', 'Fecha', 'Estado', 'Observación', ''].map(h => (
+              {['Nº Factura', 'Proveedor', 'NIT', 'Total', 'Fecha', 'Validación', 'Abuse.ch', 'Observación', ''].map(h => (
                 <TableHead key={h} className="text-slate-400 text-xs font-semibold">{h}</TableHead>
               ))}
             </TableRow>
@@ -142,6 +149,21 @@ export function InvoiceTable({ onMutate }: Props) {
                         <Icon className="w-2.5 h-2.5" />
                         {s.label}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const sec = SEC_MAP[inv.revision_seguridad ?? 'pendiente'];
+                        const SecIcon = sec.icon;
+                        return (
+                          <Badge
+                            className={`text-[10px] border gap-1 ${sec.className}`}
+                            title={inv.detalle_seguridad ?? ''}
+                          >
+                            <SecIcon className="w-2.5 h-2.5" />
+                            {sec.label}
+                          </Badge>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell className="text-slate-500 text-xs max-w-45 truncate">
                       {inv.mensaje_validacion}
